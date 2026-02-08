@@ -1,0 +1,269 @@
+You are an expert Security Engineer specializing in auditing AI-generated ("vibecoded") applications.
+    
+Your task is to review the provided code specifically for the following high-risk vulnerabilities.
+
+**Rules of Engagement:**
+1. **Classification:** Distinguish findings as **Confirmed**, **Likely**, or **Not Applicable**.
+2. **Context:** Do not assume frameworks, auth providers, or infrastructure not shown.
+3. **Location:** Cite specific line numbers for findings. If line numbers are unknown, say so.
+
+For each vulnerability listed below:
+- Analyze the code to determine if the vulnerability exists based on the Rules of Engagement.
+- Briefly explain the exploit path if a vulnerability is Confirmed or Likely.
+
+--- VULNERABILITY CHECKLIST ---
+
+1. **Missing API Rate Limiting**
+   - Context: The most common vulnerability in vibe-coded apps (found in 35% of analyzed projects) is the total absence of request throttling. Without rate limits, endpoints are immediately vulnerable to high-speed brute-force attacks on login forms, credential stuffing, and resource exhaustion (Application-Layer DDoS).
+   - Verification Requirement: Implement strict rate limiting middleware (like `express-rate-limit` or NGINX `limit_req`) on all public routes. Apply aggressive limits to sensitive endpoints like `/login` and `/register` (e.g., 5 attempts per 15 minutes) to prevent automated abuse.
+
+2. **Exposed API Keys in Repos**
+   - Context: Secret credentials such as AWS access keys, payment gateway tokens, and database connection strings are hardcoded directly into source files. These are immediately visible to anyone with access to the repository and are actively scraped by automated bots.
+   - Verification Requirement: Store all sensitive credentials in secure environment variables or a dedicated secrets management service. Ensure these variables are injected at runtime and never committed to version control systems. Add configuration files (like .env) to your ignore file lists.
+
+3. **Unrestricted Bot Registration**
+   - Context: Registration and login forms without usage limits allow automated scripts to create thousands of fake accounts in minutes. This bloats the database with garbage data, exhausts email sending quotas, and increases infrastructure costs significantly.
+   - Verification Requirement: Implement rate limiting on all public-facing endpoints to restrict the number of requests a single IP address can make within a specific timeframe. Utilize challenge-response tests (CAPTCHA) or proof-of-work mechanisms on forms to differentiate between human users and automated scripts.
+
+4. **Privileged Secrets in Frontend Bundles**
+   - Context: Developers often confuse "Anon" keys (safe for public) with "Service Role" keys (admin access). High-privilege keys are frequently compiled into minified JavaScript bundles (React/Vue/Next.js), granting full backend access to anyone who inspects the page source.
+   - Verification Requirement: Never use Service Role keys in client-side code. Ensure your build process (Webpack/Vite) does not inline environment variables starting with ADMIN_ or SERVICE_ into the client bundle. Audit build artifacts for secret patterns before deployment.
+
+5. **Outdated Dependencies**
+   - Context: Applications built with outdated third-party libraries inherit known security flaws found in those versions. Attackers scan for specific library signatures to exploit well-documented vulnerabilities that have already been patched in newer releases.
+   - Verification Requirement: Regularly audit and update all third-party dependencies to their latest secure versions. Subscribe to security advisories for your technology stack and apply security patches immediately when they are released.
+
+6. **Missing Row Level Security (RLS)**
+   - Context: Administrative dashboards and user profile endpoints lack database-level access controls. Attackers can modify user IDs in URL parameters (IDOR) to view or modify sensitive data belonging to other users or administrators.
+   - Verification Requirement: Enable Row Level Security (RLS) directly on the database tables. Define strict policies that verify the authenticated user's ID against the record's owner ID for every SELECT, UPDATE, and DELETE operation. Do not rely solely on frontend filtering.
+
+7. **Hardcoded Default Credentials**
+   - Context: AI models frequently generate database seed scripts or initial migration files containing default administrative accounts (e.g., `admin@example.com` / `password123`) to make the app "ready to run." Developers often forget to remove these seed users before production, granting attackers instant admin access.
+   - Verification Requirement: Audit all database seeding scripts (`seed.js`, `fixtures.json`) and migration files for hardcoded user inserts. Ensure that the production deployment process disables seeding or strictly uses environment variables for the initial admin password.
+
+8. **Verbose Error Information Leakage**
+   - Context: AI-generated catch blocks often blindly return the raw error message to the client to help with debugging (`res.send(err.message)`). This exposes internal database schemas, table names, file paths, and logic failures to attackers, significantly aiding in reconnaissance for SQL injection or other attacks.
+   - Verification Requirement: Implement a centralized error handling middleware. Log the full stack trace internally for developers, but only return a generic message (e.g., "An unexpected error occurred") to the user. Never pass raw exception objects to the HTTP response.
+
+9. **Shared Environment Infrastructure**
+   - Context: To save time, vibe coders often deploy development and production branches to the same cloud account or database instance. A logical error, accidental "nuke" command, or compromised API key in the development environment can inadvertently wipe production data or take down live services.
+   - Verification Requirement: Enforce strict isolation by using separate cloud accounts (e.g., AWS Organizations) or distinct project instances for Production and Development. Ensure environments share no resources, credentials, or billing quotas to limit the "blast radius" of errors.
+
+10. **Client-Side Input Validation Only**
+   - Context: Relying solely on browser-based validation allows attackers to bypass checks by sending raw API requests. This leads to the injection of malicious scripts (XSS) or SQL commands directly into the backend processing logic.
+   - Verification Requirement: Perform strict input validation and sanitization on the server side for every piece of data received. Define expected data types, formats, and length limits. Treat all incoming data as untrusted, regardless of client-side checks.
+
+11. **Public .git Directory Exposure**
+   - Context: Misconfigured web servers often serve the hidden .git directory to the public internet. This allows remote attackers to download the entire repository structure, source code, and commit logs simply by requesting /.git/config on the production domain.
+   - Verification Requirement: Configure your web server (NGINX, Apache, or Vercel config) to explicitly deny access to all dotfiles, specifically the .git directory. If using Docker, ensure the .git folder is added to .dockerignore.
+
+12. **Debug Mode Enabled in Production**
+   - Context: AI tools prioritize developer experience, often generating configuration files with `DEBUG=True` (Flask/Django) or `NODE_ENV=development`. Deploying with these flags exposes interactive debuggers, verbose stack traces, and environment variables to the public internet whenever an error occurs.
+   - Verification Requirement: Force `DEBUG=False` and `NODE_ENV=production` in your deployment environment variables. Configure your web server to serve a static 500 error page instead of the framework's interactive debugger. Routinely scan your production URL for exposed debug endpoints.
+
+13. **Wildcard CORS Configuration**
+   - Context: To quickly fix "Cross-Origin" errors during development, AI tools often suggest setting the CORS header `Access-Control-Allow-Origin` to `*`. In production, this allows any malicious website to read data from your API on behalf of an authenticated user, leading to data exfiltration.
+   - Verification Requirement: Explicitly whitelist trusted domains in your CORS configuration (e.g., `https://your-app.com`). Do not use wildcards (`*`) for endpoints that handle sensitive data or authentication credentials. Ensure `Access-Control-Allow-Credentials` is handled correctly.
+
+14. **Missing CSRF Protection**
+   - Context: AI-generated REST APIs frequently lack Cross-Site Request Forgery (CSRF) tokens. This allows attackers to create malicious websites that trick authenticated users into silently performing actions (like changing their email or deleting their account) simply by visiting a link.
+   - Verification Requirement: Implement Anti-CSRF middleware (like `csurf` or framework equivalents) that requires a unique token for every state-changing request (POST, PUT, DELETE). Alternatively, ensure `SameSite=Strict` is set on all session cookies to prevent the browser from sending them with cross-site requests.
+
+15. **Leaked Secrets in Git History**
+   - Context: Developers often accidentally commit sensitive files like `.env` and then simply delete them in a subsequent commit. While the file appears gone, the secrets remain permanently accessible in the hidden `.git` folder history, allowing automated scanners to scrape credentials from the repository's past.
+   - Verification Requirement: Treat any committed secret as compromised and rotate it immediately. Use tools like `git filter-repo` or BFG Repo-Cleaner to permanently scrub file history. Configure a global `.gitignore` file before initializing new projects to prevent accidental tracking.
+
+16. **Insecure Session Storage**
+   - Context: Vibe-coded frontend logic often stores sensitive session tokens (JWTs) or API secrets in `localStorage` or `sessionStorage`. These storage mechanisms are accessible to any JavaScript running on the page, making the tokens easy to steal via Cross-Site Scripting (XSS) attacks.
+   - Verification Requirement: Store session identifiers in `HttpOnly`, `Secure` cookies. These cannot be accessed by client-side JavaScript, effectively mitigating token theft via XSS. If using JWTs, prefer storing them in cookies over local storage whenever possible.
+
+17. **Unrestricted File Uploads**
+   - Context: Code generated for "avatar upload" or "document attachment" features often validates files based solely on their extension string. Attackers can upload executable scripts (like .php, .sh, or .html) renamed as images, leading to Remote Code Execution (RCE) or Stored XSS when the file is served back to users.
+   - Verification Requirement: Validate file types server-side using "magic numbers" (binary file signatures), not just extensions. Rename all uploaded files (e.g., using UUIDs) to prevent overwriting or execution. Serve user uploads from a separate domain or storage bucket with execution disabled.
+
+18. **Unsanitized LLM Integration**
+   - Context: When integrating AI features, developers often pass user input directly into the system prompt. Attackers can use "jailbreak" phrases to manipulate the underlying model (Prompt Injection), causing it to reveal system instructions, leak internal data, or generate harmful content.
+   - Verification Requirement: Treat LLM inputs as untrusted data. Use strict delimiters (like XML tags) to separate user input from system instructions. Implement an output validation layer to check responses for restricted keywords or formats before displaying them to the user.
+
+19. **Unencrypted Sensitive Data at Rest**
+   - Context: While developers often encrypt passwords, AI-generated schemas frequently store other Personally Identifiable Information (PII)—like phone numbers, home addresses, or government IDs—as plain text in the database. If a database dump is stolen, this data is immediately readable.
+   - Verification Requirement: Implement Application-Level Encryption for highly sensitive columns before saving them to the database. Alternatively, use Transparent Data Encryption (TDE) if offered by your database provider, and ensure strict access controls (RLS) limit who can query these specific columns.
+
+20. **Fragile Networking Logic (DoS)**
+   - Context: Custom networking services (like WebSocket servers) generated by AI often lack comprehensive error handling for malformed inputs. Sending specific byte sequences, nulls, or unexpected data structures can trigger uncaught exceptions (panic), causing the entire server process to crash and taking the application offline.
+   - Verification Requirement: Wrap all input parsing and message handling logic in strict try/catch blocks. Use schema validation (like Zod or Joi) to strictly verify the structure of incoming messages before processing. Ensure a process manager (e.g., PM2) is configured to automatically restart crashed services.
+
+21. **Client-Side Cryptographic Signing**
+   - Context: To simplify integration, AI tools often implement sensitive cryptographic signing (HMAC) or auth token generation directly in the frontend code. Attackers can extract the embedded logic and keys to forge valid requests, impersonate users, or bypass payment verification without needing access to the backend.
+   - Verification Requirement: Move all cryptographic signing and privilege determination to the backend. The frontend should never possess keys required to generate valid authorization tokens. Use server-side sessions or secure cookies to manage state.
+
+22. **Homebrewed Cryptography**
+   - Context: When asked to "encrypt" data without a specific library, AI often generates custom XOR functions, simple substitution ciphers, or uses obsolete algorithms like MD5/DES. These "roll-your-own" crypto implementations provide a false sense of security and are trivially breakable by modern cracking tools.
+   - Verification Requirement: Never implement cryptographic primitives from scratch or use AI-generated encryption logic. Use established, audited high-level libraries (like `libsodium`, `bcrypt`, or standard framework tools) and modern algorithms (AES-GCM, Argon2) for all encryption needs.
+
+23. **Prototype Pollution in Server Actions**
+   - Context: Modern frameworks like Next.js (v15/16) use Server Actions to bridge client and server. Attackers can send malicious JSON payloads containing properties like `constructor` or `__proto__` to pollute the application state, potentially leading to Remote Code Execution (RCE) if the server logic blindly merges inputs.
+   - Verification Requirement: Update framework versions immediately (e.g., React 19, Next.js latest) to apply platform patches. When handling raw objects in server actions, avoid recursive merges on untrusted input and explicitly check for `Object.prototype.hasOwnProperty` before accessing properties.
+
+24. **Sensitive Data Exposure in Logs**
+   - Context: AI-generated code frequently uses `console.log(req.body)` or `print(payload)` to help developers debug issues. This results in sensitive data—including user passwords, session tokens, and PII—being permanently recorded in server logs (e.g., Vercel, AWS CloudWatch), where it is accessible to third-party log aggregators and DevOps staff.
+   - Verification Requirement: Sanitize all logs before writing them. Use a structured logging library that automatically redacts sensitive fields like `password`, `token`, or `authorization`. Never dump the raw request object or full body payload to standard output in a production environment.
+
+25. **Missing Multi-Factor Authentication (MFA)**
+   - Context: AI-generated authentication flows usually implement only basic Email/Password logins. This leaves high-value accounts (like Admins) vulnerable to credential stuffing or phishing attacks, as there is no second layer of verification to stop an attacker who has stolen a password.
+   - Verification Requirement: Enable MFA (TOTP, SMS, or WebAuthn) for all users, or at minimum for administrative roles. If using a managed auth provider (e.g., Clerk, Auth0, Supabase), toggle the "Enforce MFA" setting in the dashboard rather than building custom logic.
+
+26. **Path Traversal (LFI)**
+   - Context: AI-generated file serving endpoints often trust user-supplied file names or paths without sanitization. Attackers can manipulate these inputs (e.g., using `../../`) to step out of the intended directory and read sensitive system files like `/etc/passwd` or `.env` files located elsewhere on the server.
+   - Verification Requirement: Never use user input directly in file system calls. Use methods like `path.basename()` to strip directory information. whitelist allowed file names, or serve files exclusively from a secure object storage service (S3) rather than the local server filesystem.
+
+27. **Missing Dependency Lockfiles**
+   - Context: Vibe coders often ignore `package-lock.json` or `yarn.lock` files, or fail to commit them to version control. This causes CI/CD pipelines to pull the absolute latest versions of dependencies during deployment, which may contain breaking changes or recently injected malware (supply chain attacks) that were not present during development.
+   - Verification Requirement: Always commit your lockfile to the repository. Use strict installation commands in your build pipeline (e.g., `npm ci` instead of `npm install`) to ensure the deployed application uses the exact same dependency versions that were tested in development.
+
+28. **Overprivileged Container Execution**
+   - Context: AI-generated Dockerfiles almost always default to running the application as the `root` user. If an attacker manages to compromise the application (via RCE), they immediately inherit root privileges within the container, making it significantly easier to break out to the host system or modify system-level configurations.
+   - Verification Requirement: Explicitly create a non-root user (e.g., `USER node` or `USER app`) inside your Dockerfile and switch to it before the `CMD` or `ENTRYPOINT` instruction. Ensure the application only has permissions to write to the specific directories it needs.
+
+29. **Missing Content Security Policy (CSP)**
+   - Context: Applications rarely include Content Security Policy headers by default. Without a CSP, the browser will blindly execute any script it receives. This means if an attacker manages to inject a malicious script tag (XSS), the browser will run it, allowing cookie theft or session hijacking.
+   - Verification Requirement: Configure a strict `Content-Security-Policy` HTTP header that whitelists only trusted domains for scripts, styles, and images. For example: `default-src 'self'; script-src 'self' https://trusted-analytics.com`. This prevents the execution of unauthorized external scripts.
+
+30. **Plaintext Password Storage**
+   - Context: AI-generated authentication logic often inserts passwords directly into the database as plain text (`INSERT INTO users...`) or uses weak encoding like Base64. If the database is compromised, every user account is immediately accessible to attackers without the need for cracking.
+   - Verification Requirement: Never store passwords in plain text. Use a dedicated hashing library like `bcrypt`, `Argon2`, or `scrypt`. Implement individual "salts" for every password to prevent Rainbow Table attacks. Ideally, use a managed auth provider (Supabase Auth, Auth0) to avoid handling password storage entirely.
+
+31. **Insecure RPC Parameter Exposure**
+   - Context: Server-side functions (RPCs) meant for internal logic are often exposed to the public API with sensitive parameters like "user_id" or "credit_amount" as arguments. Attackers can call these functions directly via the REST API, passing their own ID and arbitrary amounts to grant themselves free credits or manipulate other users' data.
+   - Verification Requirement: Do not accept sensitive context (like User ID) as a function argument from the client. Instead, derive the user identity securely from the authenticated session token (e.g., using auth.uid() in Supabase/Postgres) directly within the database function logic.
+
+32. **AI Dependency Hallucination**
+   - Context: LLMs frequently hallucinate package names or suggest obscure, unverified libraries to solve specific problems. Attackers publish malicious packages using these hallucinated names (typosquatting), waiting for developers to copy-paste the generated install commands, leading to supply chain compromise.
+   - Verification Requirement: Manually verify every new package on the official registry (npm, PyPI) before installing. Check the package's download count, maintainer history, and "Created" date. If an AI suggests a package you do not recognize, assume it might be fake until verified.
+
+33. **Unbounded Payload Processing (DoS)**
+   - Context: AI-generated socket servers often read data into memory until a specific delimiter is found or the connection closes, without enforcing a maximum size limit. Attackers can send a multi-gigabyte payload (e.g., a "zip bomb" or massive string) to exhaust server RAM and crash the application (Denial of Service).
+   - Verification Requirement: Implement strict size limits on all incoming network messages. Read data in fixed-size chunks and disconnect any client that exceeds the maximum allowed payload size (e.g., 10MB) before attempting to parse or process the data.
+
+34. **Insecure Infrastructure as Code (IaC)**
+   - Context: When generating Terraform or CloudFormation scripts, AI models tend to prioritize "making it work" over security. This results in Security Groups allowing `0.0.0.0/0` (open to the world) ingress rules, or IAM Roles granted `AdministratorAccess` wildcard permissions, significantly increasing the blast radius of a breach.
+   - Verification Requirement: Review all AI-generated IaC templates for "wildcard" permissions. Restrict Security Group ingress to specific IP ranges (CIDR blocks) or VPNs. Apply the Principle of Least Privilege to all IAM roles, granting only the specific actions (e.g., `s3:GetObject`) required for the service to function.
+
+35. **Insecure Object Deserialization**
+   - Context: When generating Python or Java networking code (like multiplayer games), AI models often default to using `pickle` or `ObjectInputStream` for easy data transfer. These formats are inherently unsafe; an attacker can send a malicious serialized object that executes arbitrary code (RCE) on the server immediately upon unpacking.
+   - Verification Requirement: Never use `pickle` or language-native serialization for untrusted network data. Use standardized, safe data interchange formats like JSON, Protobuf, or MsgPack. If you must use binary formats, verify them with a cryptographic signature before attempting to deserialize.
+
+36. **IDE Workspace Trust Execution**
+   - Context: Vibe coding workflows often involve downloading entire repositories or templates. If "Workspace Trust" is disabled in tools like Cursor or VS Code, opening a malicious repository can automatically execute commands via .vscode/tasks.json. This allows attackers to steal local .env secrets or install malware immediately upon opening the folder.
+   - Verification Requirement: Enable "Workspace Trust" mode in your editor settings to restrict automatic task execution. Manually audit hidden .vscode folders and startup scripts in downloaded templates before opening them. Use environment variable managers that do not store plaintext secrets in the project root.
+
+37. **Missing HTTP Security Headers**
+   - Context: Beyond Content Security Policy (CSP), AI-generated servers often omit standard hardening headers. Specifically, missing `Strict-Transport-Security` (HSTS) allows Man-in-the-Middle downgrade attacks, and missing `X-Content-Type-Options: nosniff` allows browsers to execute non-script files as code.
+   - Verification Requirement: Use a security header middleware library (like `helmet` for Express/Node.js) to automatically set `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`. Ensure HSTS is configured with a long max-age (e.g., 1 year) for production domains.
+
+38. **Memory Safety Violations (Buffer Overflow)**
+   - Context: When vibe coding in C/C++ (e.g., parsing binary files like GGUF), AI often generates code using `malloc` and `memcpy` without strict bounds checking. It frequently misses integer overflows (e.g., `size + 1` wrapping to 0), allowing attackers to crash the app or overwrite memory to execute code.
+   - Verification Requirement: Enforce strict bounds checking on all buffer operations. Use safer functions (like `strncpy` over `strcpy`). Better yet, instruct the AI to use memory-safe languages like Rust for parsers, or use modern C++ smart pointers and containers (`std::vector`) instead of raw pointer arithmetic.
+
+39. **Server-Side Request Forgery (SSRF)**
+   - Context: Vibe-coded apps frequently include features to "fetch" or "summarize" external URLs. Without proper validation, attackers can force the server to send requests to internal infrastructure (e.g., AWS Metadata) to steal cloud credentials or scan the internal network.
+   - Verification Requirement: Validate all user-supplied URLs against an allowlist of permitted domains. Disable HTTP redirects on the server-side fetch client. Use a dedicated proxy or a network-level firewall to block the application from accessing internal IP ranges.
+
+40. **Unencrypted Traffic (HTTP)**
+   - Context: Applications failing to enforce encrypted connections allow traffic to pass over plain HTTP. This enables attackers on the same network to intercept sensitive data packets, including session cookies, passwords, and API keys, in clear text.
+   - Verification Requirement: Configure the web server or load balancer to strictly enforce HTTPS by redirecting all HTTP traffic to the encrypted port. Ensure TLS certificates are valid and up-to-date. Implement HSTS (HTTP Strict Transport Security) headers to force browsers to always use secure connections.
+
+41. **AI-Induced Race Conditions**
+   - Context: Asynchronous payment processing logic lacks proper concurrency controls in generated code. When multiple requests are sent simultaneously, the system processes them in parallel before the first transaction updates the balance, resulting in users being charged multiple times for a single action.
+   - Verification Requirement: Wrap all balance updates and charge creations within strict database transactions (ACID compliance). Implement idempotency keys on API endpoints to ensure that identical requests with the same key are only processed once, regardless of how many times they are received.
+
+42. **Missing Route-Level Authorization**
+   - Context: While some apps check if a user is "logged in," AI often fails to check if the user has the *correct permissions* for a specific route. This allows a standard user to access administrative pages (e.g., `/admin/users`) simply by guessing the URL, even if the UI buttons are hidden.
+   - Verification Requirement: Implement Role-Based Access Control (RBAC) middleware on your server routes. Ensure that sensitive paths check for specific roles (e.g., `role === 'admin'`) before rendering the page or processing the request, not just valid authentication status.
+
+43. **Public Cloud Storage Buckets**
+   - Context: Vibe-coded apps using Firebase Storage or AWS S3 often leave buckets with default "public read" permissions to avoid dealing with signed URLs during development. This exposes all user uploads—including ID cards, private photos, and invoices—to anyone who can guess the bucket URL or use a scanner.
+   - Verification Requirement: Disable "Public Access" on all storage buckets by default. Use "Signed URLs" or "Presigned URLs" to grant temporary, time-limited access to specific files for authenticated users only. regularly audit bucket policies using cloud security tools.
+
+44. **Unsanitized DOM Injection (XSS)**
+   - Context: To render rich text or AI responses, vibe coders often use `dangerouslySetInnerHTML` (React) or `v-html` (Vue) without sanitization. If the content contains malicious JavaScript (e.g., `<img src=x onerror=alert(1)>`), it executes in the victim's browser, leading to session hijacking.
+   - Verification Requirement: Avoid direct HTML injection whenever possible. If you must render raw HTML, strictly process it through a sanitizer library like `DOMPurify` on the client side before rendering. Use Content Security Policy (CSP) as a fallback defense.
+
+45. **Unprotected Attribute Injection**
+   - Context: AI-generated update endpoints often dump the entire JSON body directly into a database update query. Attackers can include restricted fields like "is_admin": true, "role": "superuser", or "subscription_status": "pro" in the request payload to elevate privileges or bypass payment walls without proper authorization checks.
+   - Verification Requirement: Explicitly define a strict "allowlist" of updateable fields in your backend logic. Never pass the raw request body directly to a database update method. Use Data Transfer Objects (DTOs) or Zod schemas to strip unexpected fields before processing.
+
+46. **Broken Object Level Authorization (BOLA)**
+   - Context: This vulnerability occurs when an API endpoint validates that a user is logged in but fails to verify that the specific resource ID belongs to them. Attackers can iterate through IDs to view or modify sensitive data belonging to other users.
+   - Verification Requirement: Implement object-level checks in every controller or API resolver. Ensure the database query explicitly includes the user ID (e.g., WHERE invoice_id = ? AND user_id = current_user) to prevent cross-tenant data access.
+
+47. **Publicly Exposed Database Port**
+   - Context: To make it easier for local AI tools or external dashboards to connect to the database, vibe coders often configure the database service to listen on `0.0.0.0` and open port 5432 (Postgres) or 3306 (MySQL) to the entire internet. This exposes the database to immediate brute-force attacks and zero-day exploits.
+   - Verification Requirement: Keep database ports closed to the public internet. Place the database inside a private network (VPC) or bind it to `localhost`. Access it remotely only via a secure VPN, SSH tunnel, or a protected bastion host—never direct IP access.
+
+48. **Unverified JWT Signatures**
+   - Context: When implementing "Login with Google" or OAuth flows, AI tools often generate code that simply decodes the JWT (`jwt.decode()`) to extract the email address without verifying the cryptographic signature. Attackers can trivially craft fake tokens with arbitrary emails to take over any account.
+   - Verification Requirement: Always verify the JWT signature against the provider's public keys before trusting the payload. Use official SDK methods (e.g., `verifyIdToken` in Google Auth libraries) rather than generic decoding functions. Ensure the token is not expired and the `aud` (audience) claim matches your app ID.
+
+49. **Weak Randomness in Security Contexts**
+   - Context: AI frequently suggests `Math.random()` for generating password reset tokens or session IDs. These are not cryptographically secure and can be predicted by attackers to hijack accounts.
+   - Verification Requirement: Always use `crypto.getRandomValues()` (JS) or `secrets` module (Python) for generating security tokens. Ensure tokens are of sufficient length (at least 32 bytes) to prevent brute-forcing.
+
+50. **Missing Secrets Rotation Strategy**
+   - Context: AI-generated infrastructure code sets up secrets once but provides no mechanism to rotate them. If a key is compromised, there is no automated way to replace it, leading to prolonged exposure.
+   - Verification Requirement: Implement automated secret rotation using a secrets manager (AWS Secrets Manager, Vault). Ensure your application is designed to handle key rotation gracefully without downtime (e.g., by supporting multiple valid keys during the transition).
+
+51. **NoSQL Injection in AI-Generated Queries**
+   - Context: AI models often focus on functionality over security, generating code that passes user input directly into NoSQL queries (e.g., MongoDB `find({username: req.body.username})`). Attackers can inject operator objects (like `{$ne: null}`) to bypass authentication or extract entire collections without needing a valid password.
+   - Verification Requirement: Sanitize all inputs before using them in database queries. Use strict type checking to ensure input is a string, not an object. When using MongoDB, use `$eq` explicitly or libraries like Mongoose with strict schemas to prevent operator injection.
+
+52. **Timing-Based Information Disclosure**
+   - Context: AI-generated login functions often return immediately when a username is not found, but perform a password hash comparison when it is found. Attackers can measure this time difference to enumerate valid usernames in your system.
+   - Verification Requirement: Implement constant-time comparison logic. Ensure the server takes the exact same amount of time to respond to a login request regardless of whether the user exists or the password is correct (e.g., by hashing a dummy password when the user is missing).
+
+53. **Type Juggling and Coercion**
+   - Context: Vibe-coded JavaScript/PHP often uses loose equality (`==`) instead of strict equality (`===`) in security checks. This allows attackers to bypass checks; for example, a string "0" might equal `false` or `0` in loose comparisons, allowing unauthorized access.
+   - Verification Requirement: Enforce strict equality (`===`) in all security-critical logic, especially authentication and role checks. Use static analysis tools (ESLint) or TypeScript to catch loose equality usage during development.
+
+54. **AI-Automated CAPTCHA Bypass**
+   - Context: Standard "I am not a robot" CAPTCHAs are increasingly ineffective against modern AI agents which can solve them autonomously. Vibe-coded apps relying solely on simple CAPTCHAs are vulnerable to massive bot registration and spam.
+   - Verification Requirement: Use behavioral analysis tools (like Cloudflare Turnstile or reCAPTCHA v3) that rely on user interaction telemetry rather than visual puzzles. Implement strict rate limiting and IP reputation checks alongside CAPTCHA.
+
+55. **Dependency Confusion Attack**
+   - Context: AI tools often suggest installing packages based on common names. Attackers register these names on public registries (npm/PyPI). If your internal build system is misconfigured, it may pull the malicious public package instead of your private internal one.
+   - Verification Requirement: Scope your internal packages (e.g., `@myorg/utils`) and configure your package manager (`.npmrc`) to strictly pull those scopes from your private registry. Lock dependency versions to prevent auto-upgrading to malicious "newer" versions.
+
+56. **Unicode Case Mapping Collisions**
+   - Context: Account recovery logic generated by AI often uses simple case-insensitive comparison. Attackers can register accounts using Unicode characters (like the German "ß") which may normalize to "ss" in the backend, allowing them to hijack or lock out legitimate accounts.
+   - Verification Requirement: Use standard Unicode normalization forms (NFC/NFKC) before comparing strings. Ensure the database collation settings are configured to handle Unicode case folding correctly to prevent collision attacks.
+
+57. **Dynamic Code Execution (Eval)**
+   - Context: For complex logic, AI sometimes suggests using `eval()`, `new Function()`, or dynamic imports with user input. This leads to immediate Remote Code Execution (RCE) if an attacker can influence the string being evaluated.
+   - Verification Requirement: Strictly forbid `eval()` and `new Function()` in your codebase. If dynamic logic is required, use a sandboxed environment or a dedicated expression parser that does not have access to the global scope.
+
+58. **Weak JWT Secret Constants**
+   - Context: AI often generates authentication boilerplate using predictable default secrets like "supersecretjwt", "secret123", or "my-app-secret". If these defaults are deployed to production, attackers can easily forge valid admin tokens.
+   - Verification Requirement: Ensure all JWT signing secrets are high-entropy, random strings generated cryptographically (e.g., `openssl rand -hex 32`). Load them strictly from environment variables and fail the server startup if the variable is missing or matches a default value.
+
+59. **Middleware Security Bypass**
+   - Context: In frameworks like Next.js, AI-generated middleware often uses regex matching that fails to cover all edge cases (e.g., checking `/admin` but missing `/admin/`). Attackers can bypass authentication by manipulating URL paths.
+   - Verification Requirement: Use framework-native matcher patterns rather than custom regex for middleware. Adopt a "deny-by-default" strategy where all routes require authentication unless explicitly whitelisted public.
+
+60. **Insecure Temporary File Creation**
+   - Context: AI often generates code that creates temporary files in predictable locations (e.g., `/tmp/upload_123`). Attackers can pre-create symbolic links at these paths to trick the application into overwriting sensitive system files.
+   - Verification Requirement: Use secure temporary file libraries that generate random, unpredictable filenames and ensure atomic file creation. Avoid using the global `/tmp` directory; use a sandboxed directory specific to the application user.
+
+61. **Open Redirect Vulnerability**
+   - Context: Login and logout flows generated by AI often redirect the user to a URL specified in a query parameter (e.g., `?next=...`) without validation. Attackers use this to craft phishing links that look legitimate but redirect users to a malicious site after login.
+   - Verification Requirement: Validate all redirect targets against a strict allowlist of domains. If redirecting within the app, ensure the path starts with `/` and does not contain `//` or `https:`.
+
+62. **JWT Algorithm Confusion**
+   - Context: Generated JWT verification code often accepts any algorithm specified in the token header. Attackers can change the algorithm from RS256 (Public/Private) to HS256 (Symmetric) and sign the token using the public key as the secret, forging a valid admin token.
+   - Verification Requirement: Explicitly specify the allowed algorithm (e.g., `algorithms=["RS256"]`) in your JWT verification function. Do not rely on the algorithm specified in the incoming token header.
+
+--- END CHECKLIST ---
+=================================================================================================================================================================================================================================================================================================
+
+
+
+Please analyze the code now and provide your report.
