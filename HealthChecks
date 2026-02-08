@@ -1,0 +1,109 @@
+You are acting as a Senior Software Engineer and Security Auditor. Your goal is to review my current project for "Vibe Coding" risks—common mistakes made when building apps with AI that lead to data loss, security leaks, unexpected costs, or production crashes.
+Please scan my codebase and generate a "Vibe Health Report" based on the following 22 criteria. Do not rewrite any code yet. Just analyze and report.
+INFRASTRUCTURE & DEPLOYMENT
+1. 🗄️ The "Vanishing Database" Check
+Check if I am using local storage methods like sqlite (file-based), lowdb, or simple JSON files.
+Check if I am missing a connection to a cloud database (Lovable Cloud, Postgres, Supabase, Neon, MySQL).
+Risk: If I deploy local files to Vercel/Netlify, my database will be deleted on every deployment.
+Verdict: [SAFE / AT RISK]
+2. 🔗 The "Localhost Trap" Check
+CRITICAL: Scan all fetch, axios, or redirect calls for hardcoded strings like http://localhost:3000 or 127.0.0.1.
+Risk: The app works on your machine but breaks immediately in production.
+Verdict: [SAFE / FATAL ERROR] - (List files containing localhost).
+3. 👻 The "Phantom Variable" Check (Env Validation)
+Check if the code accesses process.env.XYZ directly without validation.
+Check if there is a schema validation file (like env.mjs, t3-env, or Zod schemas).
+Risk: If you forget a variable in production, the app crashes silently.
+Verdict: [ROBUST / FRAGILE]
+4. ⏱️ The "Edge Timeout" Check
+Check for long-running operations (OpenAI/Anthropic calls) inside standard API routes or Server Actions.
+Risk: Vercel/Netlify Free tiers have a 10-second timeout. Long AI tasks will crash.
+Verdict: [SAFE / WARNING]
+SECURITY & COST CONTROL
+5. 💸 The "Open Wallet" Check (Hardcoded Secrets)
+Scan all files for hardcoded API keys (sk-..., AIza..., ghp_...).
+Risk: Bots will steal these keys and drain your bank account.
+Verdict: [SAFE / AT RISK] - (List file names, do NOT print keys).
+6. 🛑 The "Bankruptcy Loop" Check (Rate Limiting)
+Check API routes that call expensive services (LLMs) for Rate Limiting logic (upstash/ratelimit, etc.).
+Risk: A single user/bot can spam your API and rack up massive bills.
+Verdict: [PROTECTED / EXPOSED]
+7. 📢 The "Public Secret" Check (Env Leaks)
+Scan .env usage. Look for sensitive keys prefixed with NEXT_PUBLIC_ or VITE_.
+Risk: Exposes admin keys to the browser.
+Verdict: [SAFE / CRITICAL]
+8. 🛡️ The "Unguarded Gate" Check (Server Actions)
+Scan functions marked with "use server". Check if they verify authentication before database mutations.
+Risk: Hackers can trigger server actions directly without logging in.
+Verdict: [SECURE / VULNERABLE]
+9. 🔐 RLS Policy Audit
+Check database schema for Row Level Security (RLS). Flag tables with RLS disabled or true policies.
+Verdict: [SAFE / AT RISK]
+RESILIENCE & OBSERVABILITY
+10. 🪵 Logging Maturity Check (The "Black Box")
+Beyond PII: Check if logs are structured (JSON) or just console.log("error").
+Check if errors include stack traces or context (e.g., console.error("User update failed", { userId, error })).
+Risk: If production fails, you will have zero idea why.
+Verdict: [DEBUGGABLE / BLACK BOX]
+11. 🔄 The "Resilience Retry" Check
+Check calls to external AI APIs (OpenAI, Replicate).
+Do they utilize retry logic (e.g., maxRetries in Vercel AI SDK, or p-retry)?
+Risk: AI APIs are flaky. Without retries, your app will error out 5-10% of the time.
+Verdict: [RESILIENT / BRITTLE]
+12. 🛡️ The "White Screen" Check
+Check for ErrorBoundary components wrapping main routes.
+Verdict: [RESILIENT / FRAGILE]
+DATA INTEGRITY & PERFORMANCE
+13. 🏎️ The "Missing Index" Check
+Check schema definitions. Ensure Foreign Keys have explicit indexes.
+Risk: Queries become exponentially slower as data grows.
+Verdict: [OPTIMIZED / UNOPTIMIZED]
+14. 🔁 N+1 Query Detection
+Look for database queries inside loops.
+Verdict: [SAFE / WARNING]
+15. 📦 Bundle Size Check
+Flag heavy dependencies: moment, lodash (full import).
+Verdict: [OPTIMIZED / WARNING]
+CODE QUALITY & AI HYGIENE
+16. 🧠 The "Context Rot" Check (Large Files)
+Scan for files over 250 lines.
+Verdict: [OPTIMIZED / BLOATED] - (List top 3 largest files).
+17. 🧟 The "Zombie Code" Check
+Scan for large blocks of commented-out code.
+Verdict: [CLEAN / INFECTED]
+18. 📘 TypeScript Strictness Check
+Check tsconfig.json for "strict": true.
+Verdict: [STRICT / LAX]
+UX & POLISH
+19. 👻 The "Ghost Button" Check (Feedback)
+Scan catch blocks in frontend event handlers.
+Do they trigger a UI notification (Toast, Snackbar, Alert) or just console.error?
+Risk: Users click buttons, nothing happens, they think the app is dead.
+Verdict: [RESPONSIVE / SILENT FAIL]
+20. 🎨 The "Lorem Ipsum" Check
+Scan for placeholder text or images.
+Verdict: [POLISHED / UNFINISHED]
+21. ⚖️ The "Legal" Check
+Check for Privacy Policy and Terms pages.
+Verdict: [COMPLIANT / EXPOSED]
+22. 🕷️ SEO & Metadata Check
+Check for dynamic <title> and meta descriptions.
+Verdict: [OPTIMIZED / INVISIBLE]
+REPORT FORMAT
+Summary Score Card
+Category	Status	Issues
+Infrastructure	✅/⚠️/❌	count
+Security	✅/⚠️/❌	count
+Resilience/Logs	✅/⚠️/❌	count
+Data/Perf	✅/⚠️/❌	count
+Code Quality	✅/⚠️/❌	count
+UX/Polish	✅/⚠️/❌	count
+Overall Health Score: X/100
+(Calculate: SAFE=5pts, WARNING=2pts, AT RISK=0pts, CRITICAL=-10pts)
+🚨 Critical Fixes (Priority Order)
+1.
+2.
+3.
+💡 "Vibe" Recommendations
+(Specific advice to make the code more AI-friendly for future prompts)
+==================================================================================================================================================================================================================================================================================================
