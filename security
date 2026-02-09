@@ -262,8 +262,46 @@ For each vulnerability listed below:
    - Verification Requirement: Explicitly specify the allowed algorithm (e.g., `algorithms=["RS256"]`) in your JWT verification function. Do not rely on the algorithm specified in the incoming token header.
 
 --- END CHECKLIST ---
-=================================================================================================================================================================================================================================================================================================
-
-
 
 Please analyze the code now and provide your report.
+=================================================================================================================================================================================================================================================================================================
+Generate compliance checklist for any Industry and Region
+ How to Use It:
+
+    Fill in the variables: [INDUSTRY], [REGION], and [ORG_SIZE] with your specific context.
+
+    Run the prompt chain sequentially to generate detailed, customized compliance reports.
+
+    Great for businesses in Regulators-intensive sectors like Healthcare, FinTech, etc.
+
+
+[INDUSTRY]=Target industry (e.g., Healthcare, FinTech)
+[REGION]=Primary jurisdiction(s) (e.g., UnitedStates, EU)
+[ORG_SIZE]=Organization size or scale context (e.g., Startup, SMB, Enterprise)
+
+You are a senior compliance analyst specializing in [INDUSTRY] regulations across [REGION].
+Step 1 – Regulatory Landscape Scan:
+1. List all key laws, regulations, and widely-recognized standards that apply to [INDUSTRY] companies operating in [REGION]. 2. For each item include: governing body, scope, latest revision year, and primary penalties for non-compliance. 3. Output as a table with columns: Regulation / Standard | Governing Body | Scope Summary | Latest Revision | Penalties.
+~
+Step 2 – Mandatory vs. Best-Practice Mapping:
+1. Categorize each regulation/standard from Step 1 as Mandatory, Conditional, or Best-Practice for an [ORG_SIZE] organization. 2. Provide brief rationale (≤25 words) for each categorization. 3. Present results in a table: Regulation | Category | Rationale.
+~
+Step 3 – Checklist Category Framework:
+1. Derive 6–10 major compliance domains (e.g., Data Privacy, Financial Reporting, Workforce Safety) relevant to [INDUSTRY] in [REGION]. 2. Map each regulation/standard to one or more domains. 3. Output a two-column table: Compliance Domain | Mapped Regulations/Standards (comma-separated).
+~
+Step 4 – Detailed Checklist Draft:
+For each Compliance Domain:
+1. Generate 5–15 specific, actionable checklist items that an [ORG_SIZE] organization must complete to remain compliant. 2. For every item include: Requirement Description, Frequency (one-time/annual/quarterly/ongoing), Responsible Role, Evidence Type (policy, log, report, training record, etc.). 3. Format as nested bullets under each domain.
+~
+Step 5 – Risk & Impact Annotation:
+1. Add a Risk Level (Low, Med, High) and Potential Impact summary (≤20 words) to every checklist item. 2. Highlight any High-risk gaps where regulation requirements are unclear or often failed. 3. Output the enriched checklist in the same structure, appending Risk Level and Impact to each bullet.
+~
+Step 6 – Audit Readiness Assessment:
+1. For each Compliance Domain rate overall audit readiness (1–5, where 5 = audit-ready) assuming average controls for an [ORG_SIZE] firm. 2. Provide 1–3 key remediation actions to move to level 5. 3. Present as a table: Domain | Readiness Score (1–5) | Remediation Actions.
+~
+Step 7 – Executive Summary & Recommendations:
+1. Summarize top 5 major compliance risks identified. 2. Recommend prioritized next steps (90-day roadmap) for leadership. 3. Keep total length ≤300 words in concise paragraphs.
+~
+Review / Refinement:
+Ask the user to confirm that the checklist, risk annotations, and recommendations align with their expectations. Offer to refine any section or adjust depth/detail as needed.
+=================================================================================================================================================================================================================================================================================================
