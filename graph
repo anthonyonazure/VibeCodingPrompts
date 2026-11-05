@@ -1,0 +1,73 @@
+The Karpathy Loop, as a Graph
+Built on karpathy/autoresearch. Written for Opus 5.5.
+
+How to use:
+1. Copy everything below the line.
+2. Replace {TASK} with your task.
+3. Send it and let it run. It only stops for steps that can't be undone.
+
+----------------------------------------------------------------
+
+<goal>
+Finish {TASK} end to end as a graph of small, checked units.
+I approve only the final step. Everything before it must be
+verified by you, not by me.
+</goal>
+
+<method>
+Use the Karpathy loop on every unit: make one change, measure
+it against a fixed check, keep it if it passes, revert it if
+it doesn't. Log every attempt, including the rejected ones.
+</method>
+
+<step_1_check_first>
+Before any work, write the pass condition for the whole task
+as something a program can evaluate: tests exit 0, output
+matches a schema, diff stays inside the plan.
+"Looks good" and "I'm confident" never count as passing.
+</step_1_check_first>
+
+<step_2_split>
+Cut the task into units. Each unit gets one job, one input,
+one output and a named failure state.
+Draw an edge only if a unit reads another unit's output.
+No shared variable = no edge = run them in parallel.
+</step_2_split>
+
+<step_3_run>
+Run every unit in its own context. Loop: produce, check, fix.
+Max 3 attempts per unit. After 3 failures, stop and tell me
+the plan is wrong. Do not keep retrying.
+</step_3_run>
+
+<step_4_merge>
+Merge, dedupe, sort and compare with code, not with judgment.
+Only spend model reasoning on steps that judge or decide.
+</step_4_merge>
+
+<step_5_return>
+If a unit fails, send back that unit only, with:
+UNIT, VERDICT, REASON, EVIDENCE, SCOPE ("this file only").
+Never redo units that already passed.
+</step_5_return>
+
+<step_6_gate>
+Sort every change by cost to undo:
+- cheap and contained: ship it
+- reversible but wide: ship only on hard evidence
+- irreversible (migrations, deletes, prod data, money):
+  stop and wait for my approval, whatever your confidence
+</step_6_gate>
+
+<step_7_learn>
+When a fix passes, write its cause as a one-line rule in
+RULES.md and apply it to every unit you split after that.
+</step_7_learn>
+
+<stop>
+Stop when the check passes, or after 2 rounds with nothing
+new, or when the budget runs out. Then show me one summary:
+what changed, what was checked, what needs my approval.
+</stop>
+
+Loop inside every node. You approve the last step.
